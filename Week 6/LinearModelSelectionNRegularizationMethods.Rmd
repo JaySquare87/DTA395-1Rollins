@@ -1,0 +1,588 @@
+---
+title: "Linear Models and Regularization Methods"
+output: html_notebook
+---
+
+# Linear Models and Regularization Methods
+
+# Model Interpretability
+
+-   Model interpretability is hindered by including variables not associated with the response, leading to unnecessary complexity.
+
+-   Removing irrelevant variables by setting their coefficient estimates to zero simplifies the model, enhancing interpretability.
+
+-   Least squares method seldom results in coefficient estimates that are exactly zero.
+
+-   The chapter discusses approaches for automatic **feature or variable selection** to exclude irrelevant variables from a multiple regression model.
+
+# Three important methods
+
+1.  **Subset Selection**: This approach involves identifying a subset of the $p$ predictors that we believe to be related to the response. We then fit the a model using least squares on the reduced set of variables.
+2.  **Shrinkage**: This approach involves fitting a model involving all $p$ predictors. However, the estimated coefficients are shrunken towards zero relative to the least square estimates. This shrinkage (or regularization) has the effect of reducing variance. Depending on what type of shrinkage is performed, some of the coefficients may be estimated to exactly zero. Hence, shrinkage methods can also perform variable selection.
+3.  **Dimension Reduction**: This approach involves projecting the $p$ predictors into an $M$-dimensional subspace, where $M < p$. This is achieved by computing $M$ different linear combinations, projections, of the variables. Then these $M$ projections are used as predictors to fit a linear regression model by least squares.
+
+# Subset Selection
+
+In this section we consider some methods for selecting subsets of predictors. These include:
+
+-   Subset selection
+
+-   Stepwise model selection.
+
+## Best Subset Selection
+
+We fit a separate least squares regression for each possible combination of the $p$ predictors.
+
+### Algorithm
+
+1.  Let $M_0$ denote the null model, which contains no predictors. This model simply predicts the sample mean for each observation.
+2.  For $k = 1, 2, ..., p$:
+    1.  Fit all $\left( \begin{array}{c} P \\ k \end{array} \right)$ models that contain exactly $k$ predictors.
+    2.  Pick the best among these $\left( \begin{array}{c} P \\ k \end{array} \right)$ models, and call it $M_k$. Best is defined as having the smallest RSS, or equivalently largest $R^2$
+3.  Select a single best model from among $M_0, ..., M_P$ using cross-validated prediction error, $C_p$, $AIC$, $BIC$ or adjusted $R^2$
+
+### What is $C_p$, $AIC$, $BIC$ and Adjusted $R^2$?
+
+[Wikipedia - Goodness of Fit](https://en.wikipedia.org/wiki/Goodness_of_fit)
+
+#### $C_p$ - Mallow's $C_p$
+
+For a fitted least squares model containing $d$ predictors, the $C_p$ estimate of test MSE is computed using the equation
+
+$$
+C_p = \dfrac{1}{n}( \, RSS + 2d \hat{\sigma}^2 ) \,
+$$
+
+$\hat{\sigma}^2$ is an estimate of the variance of the error $\epsilon$ associated with each response measurement.
+
+#### $AIC$ - Akaike information criterion
+
+The $AIC$ criterion is defined for a large class of models of fit by maximum likelihood
+
+$$
+AIC=\dfrac{1}{n}( \, RSS + 2d \hat{\sigma}^2 ) \,
+$$
+
+#### $BIC$ - Bayesian information criterion
+
+$BIC$ is derived from the Bayesian point of view. For the least square model with $d$ predictors, the $BIC$ is calculated as follows:
+
+$$
+BIC=\dfrac{1}{n}( \, RSS + log(n)d \hat{\sigma}^2 ) \,
+$$
+
+#### $R^2$ vs. Adjusted-$R^2$
+
+R2 (Coefficient of Determination): Measures the proportion of the variance in the dependent variable that is predictable from the independent variables. It ranges from 0 to 1, where a value of 0 means that the model does not explain any of the variance in the dependent variable (over the mean model), while a value of 1 means that the model explains all the variance in the dependent variable. However, R2 has a significant limitation: it can increase just by adding more variables to the model, regardless of whether those variables are actually significant. This can lead to overfitting, where the model starts to capture noise rather than the underlying relationship.
+
+**Adjusted** R2: Adjusts the R2 value based on the number of predictors in the model, providing a more accurate measure of model quality for models with a different number of independent variables. Unlike R2, Adjusted R2 can decrease if a predictor that does not improve the model's ability to predict the dependent variable is added. This makes it a better metric for comparing models with a different number of predictors. Adjusted R2 is calculated using the formula:
+
+$$\text{Adjusted } R^2 = 1 - \dfrac{RSS/(n-d-1)}{TSS/(n-1)} $$
+
+where $n$ is the sample size and $p$ is the number of predictors in the model. This adjustment accounts for the model's degrees of freedom, penalizing for the number of predictors.
+
+### Subset Selection Methods Code Example
+
+```{r}
+# Load the ISLR2 library
+library(ISLR2)
+# Load the Hitters dataset
+Hitters
+# You can learn more about this dataset by running the following code
+# ?Hitters
+```
+
+```{r}
+# Remove na values from Hitters
+Hitters <- na.omit(Hitters)
+dim(Hitters)
+sum(is.na(Hitters))
+```
+
+```{r}
+# Load the leaps library
+library(leaps)
+# Perform best subset selection on Hitters
+regfit.full <- regsubsets(Salary ~ ., Hitters)
+summary(regfit.full)
+```
+
+An asterisk indicates that a given variable is included in the corresponding model. For instance, this output indicate that the best two-variable model contains only Hits and CRBI.
+
+Notice that regsubsets() function only reports results up to the best eight-variable mode. However, in our dataset, there are 19 variables. We can use the nvmax parameter to force the function to produce up to $k$ number of variables desired.
+
+```{r}
+# Run the regsubsets() function again with nvmax set to 19
+regfit.full <- regsubsets(Salary ~ ., data = Hitters, nvmax = 19)
+reg.summary <- summary(regfit.full)
+```
+
+```{r}
+# Check the RSq for all best models
+names(reg.summary)
+reg.summary$rsq
+```
+
+Notice how $R^2$ statistic increases from 32%, when only one variable is included in the model, to almost 55%, when all variables are included.
+
+```{r}
+# Plot for both RSq and Adjusted RSq
+par(mfrow = c(2,2))
+plot(reg.summary$rsq, xlab="Number of Variables", ylab="RSS", type="l")
+plot(reg.summary$adjr2, xlab="Number of variables", ylab="Adjusted RSq", type="l")
+```
+
+```{r}
+# Now we need to find which model produced the max Adjusted RSq
+which.max(reg.summary$adjr2)
+```
+
+It seems model 11 is the model with the best predictors subset
+
+```{r}
+# Plot the adjust RSq plot with the RSq of model 11 as a point.
+plot(reg.summary$adjr2, xlab="Number of variables", ylab="Adjusted RSq", type="l")
+points(11, reg.summary$adjr2[11], col="red", cex=2, pch=20)
+```
+
+In a similar fashion we can plot the $C_p$ and $BIC$ statistics, and indicate the models with the smallest statistic using which.min()
+
+```{r}
+plot(reg.summary$cp, xlab="Number of Variables", ylab="Cp", type="l")
+```
+
+Finding the model with min $C_p$
+
+```{r}
+
+```
+
+It seems the model with min $C_p$ is 10.
+
+```{r}
+plot(reg.summary$cp, xlab="Number of Variables", ylab="Cp", type="l")
+points (10, reg.summary$cp[10] , col ="red", cex = 2, pch = 20)
+```
+
+Finding the min $BIC$
+
+```{r}
+which.min(reg.summary$bic)
+```
+
+Plot
+
+```{r}
+plot(reg.summary$bic, xlab="Number of Variables", ylab="BIC", type="l")
+points(6, reg.summary$bic[6], col="red", cex=2, pch=20)
+```
+
+The regsubsets() function has a built-in plot() command which can be used to display the selected variables for the best model with a given numbers of predictors, ranked according to the $BIC, C_p, adjusted-R^2$ or $AIC$.
+
+```{r}
+plot(regfit.full, scale="r2")
+```
+
+```{r}
+plot(regfit.full, scale="adjr2")
+```
+
+```{r}
+plot(regfit.full, scale="Cp")
+```
+
+```{r}
+plot(regfit.full, scale="bic")
+```
+
+Getting the coefficients of model 6
+
+```{r}
+coef(regfit.full, 6)
+```
+
+## Stepwise Selection
+
+When you have too many predictors, best subset selection becomes computationally expensive.
+
+## Forward Stepwise Selection
+
+### Algorithm
+
+1.  Let $M_0$ denote the null model, which contains no predictors.
+2.  For $k=0,...,p-1$:
+    1.  Consider all $p-k$ models that augment the predictors in $M_k$ with one additional predictor.
+    2.  Choose the best among these $p-k$ models, and call it $M_{k+1}$. By best we mean the model that has the smallest RSS or highest $R^2$.
+3.  Select a single best model from among $M_0, ..., M_p$ using cross-validated prediction error, $C_p$, $AIC$, $BIC$, or adjusted $R^2$.
+
+### Forward Stepwise vs. Best Subset
+
+![](images/clipboard-434151973.png)
+
+### Forward Stepwise Code Example
+
+```{r}
+regfit.fwd <- regsubsets(Salary ~ ., data = Hitters, nvmax=19, method="forward")
+summary(regfit.fwd)
+```
+
+## Backward Stepwise Selection
+
+Like forward stepwise selection, backward stepwise selection provides an efficient alternative to best subset selection.
+
+Unlike forward stepwise selection, it begins with the full least squares model containing all $p$ predictors, and then iteratively removes the least useful predictor, one-at-a-time.
+
+### Algorithm
+
+1.  Let $M_p$ denote the full model, which contains all $p$ predictors
+2.  For $k=p, p-1, ..., 1$:
+    1.  Consider all $k$ models that contain all but one of the predictors in $M-k$, for a total of $k-1$ predictors
+    2.  Choose the best among these $k$ models, and call it $M_{k-1}$. Best model is the model that has the smallest RSS or highest $R^2$.
+3.  Select a single best model from among $M_0, ..., M_p$ using cross-validated predictions, $C_p$, $AIC$, $BIC$, or Adjusted $R^2$.
+
+### Backward stepwise selection code example
+
+```{r}
+regfit.bwd <- regsubsets(Salary ~ ., data = Hitters, nvmax=19, method="backward")
+summary(regfit.bwd)
+```
+
+### Compare fwd and bwd with 7 predictors
+
+```{r}
+# A function to check if both approaches agree on the variable selection.
+fwd_bwd_sim <- function(varnum) {
+  print("Coefficients for forward stepwise selection")
+  print(names(coef(regfit.fwd, varnum)))
+  print("Coefficients for backward stepwise selection")
+  print(names(coef(regfit.bwd, varnum)))
+  
+  if(all(names(coef(regfit.fwd, varnum)) == names(coef(regfit.bwd, varnum)))) {
+    print("Both agreed on the variables")
+  } else {
+    print("There is no agreement on the variables.")
+  }
+}
+
+# Enter the number of variables as input to the function.
+fwd_bwd_sim(18)
+```
+
+## Choosing Among Models Using the Validation-Set Approach and Cross-Validation
+
+```{r}
+# Set seed to 1
+set.seed(1)
+# Define train sample
+train <- sample(c(TRUE, FALSE), nrow(Hitters), replace=TRUE)
+test <- (!train)
+```
+
+Now, we apply regsubsets() to the training set in order to perform best subset selection
+
+```{r}
+regfit.best <- regsubsets(Salary ~ ., data=Hitters[train, ], nvmax=19)
+```
+
+We now compute the validation set error for the best model of each model size.
+
+We first make a model matrix from the test data.
+
+```{r}
+test.mat <- model.matrix(Salary ~ ., data=Hitters[test, ])
+val.errors <- rep(NA, 19)
+for (i in 1:19) {
+  coefi <- coef(regfit.best, i)
+  pred <- test.mat[, names(coefi)] %*% coefi
+  val.errors[i] <- mean((Hitters$Salary[test] - pred)^2)
+}
+```
+
+Check the error values
+
+```{r}
+val.errors
+```
+
+Find the minimum error
+
+```{r}
+which.min(val.errors)
+```
+
+Get the coefficients for the model with 7 predictors
+
+```{r}
+coef(regfit.best, 7)
+```
+
+Create a predict function to make our lives easier
+
+```{r}
+predict.regsubsets <- function(object, newdata, id, ...) {
+  form <- as.formula(object$call[[2]])
+  mat <- model.matrix(form, newdata)
+  coefi <- coef(object, id = id)
+  xvars <- names(coefi)
+  mat[, xvars] %*% coefi
+}
+```
+
+Find the best subset using the function created above.
+
+```{r}
+k <- 10
+n <- nrow(Hitters)
+set.seed(1)
+folds <- sample(rep(1:k, length = n))
+cv.errors <- matrix(NA, k, 19, dimnames = list(NULL, paste(1:19)))
+
+for(j in 1:k) {
+  best.fit <- regsubsets(Salary ~ ., data=Hitters[folds != j, ], nvmax=19)
+  for(i in 1:19) {
+    pred <- predict(best.fit, Hitters[folds == j, ], id=i)
+    cv.errors[j, i] <- mean((Hitters$Salary[folds == j] - pred)^2)
+  }
+}
+
+```
+
+Calculate the mean of the cross-validation errors
+
+```{r}
+mean.cv.errors <- apply(cv.errors, 2, mean)
+mean.cv.errors
+```
+
+Plot
+
+```{r}
+par(mfrow = c(1,1))
+plot(mean.cv.errors, type="b")
+```
+
+# Shrinkage Models
+
+As an alternative to subset selection, we can fit a model containing all $p$ predictors using a technique that constrains or regularizes the coefficient estimates, or equivalently, that shrinks the cofficient estimates towards zero.
+
+## Ridge Regression
+
+**Problem of Overfitting**: Linear regression can sometimes fit the training data too closely, capturing noise in the data rather than the underlying pattern. This is especially true when we have a large number of predictors or when some predictors are highly correlated. This overfitting results in poor model performance on new, unseen data.
+
+**Regularization Explained**: Regularization is a technique used to prevent overfitting by discouraging overly complex models. It does this by adding a penalty to the size of the coefficients in the regression model. The goal is to find a good balance between fitting the training data well and keeping the model simple enough to perform well on new data.
+
+Recall that RSS is:
+
+$$
+RSS=\sum_{i=1}^n \left( \, y_i-\beta_0-\sum_{j=1}^p\beta_Jx_{ij}\right) 
+$$
+
+Ridge Regression is very similar to least squares except that the coefficients are estimated by minimizing a slightly different quantity. In particular, the ridge regression coefficient estimates $\hat{\beta}^R$ are the values that minimize
+
+$$
+\sum_{i-1}^n \left( y_i - \beta_0 - \sum_{j=1}^p \beta_j x_{ij} \right)^2 + \lambda \sum_{j=1}^p \beta_j^2 = RSS + \lambda \sum_{j=1}^p \beta_j^2
+$$
+
+Where $\lambda \geq 0$ is a tuning parameter, to be determined separately.
+
+The term $\lambda \sum_{j=1}^p \beta_j^2$ is called the shrinkage penalty. It is small when $\beta_1,...,\beta_p$ are close to zero.
+
+### Example from the Credit dataset
+
+We didn't use this dataset in this class but you can load it from the ISLR2 package.
+
+### ![](images/clipboard-2162446678.png)
+
+### Benefits of Ridge Regression
+
+-   **Stability in Predictions**: By shrinking the coefficients, ridge regression reduces model complexity, leading to more stable predictions across different samples of data.
+
+-   **Handling Multicollinearity**: Ridge regression can handle problems when independent variables are highly correlated (multicollinearity) by distributing the coefficient values among the correlated variables.
+
+## The Lasso (Least Absolute Shrinkage and Selection Operator)
+
+-   **Variable Selection**: Unlike Ridge regression, which shrinks the coefficients of less important variables but does not set them to zero, Lasso has the ability to shrink some coefficients to exactly zero when $\lambda$ is sufficiently large. This effectively removes those variables from the model, performing variable selection and resulting in a model that is easier to interpret.
+
+-   **Regularization**: By penalizing the absolute size of the coefficients, Lasso helps to prevent overfitting, especially in situations where there are many more predictors than observations or when some predictors are highly correlated.
+
+-   **Sparse Models**: The models produced by Lasso can be sparse, meaning that only a subset of the predictors have non-zero coefficients. This sparsity makes the model simpler and often more interpretable.
+
+### Equation
+
+$$
+\sum_{i-1}^n \left( y_i - \beta_0 - \sum_{j=1}^p \beta_j x_{ij} \right)^2 + \lambda \sum_{j=1}^p |\beta_j| = RSS + \lambda \sum_{j=1}^p |\beta_j|
+$$
+
+### Same analysis on the Credit dataset
+
+![](images/clipboard-3458377718.png)
+
+### Ridge Regression Code Example
+
+We need to use the glmnet package
+
+If you don't have this package, install it
+
+```{r}
+install.packages("glmnet")
+```
+
+But first, we need to create a matrix of the data
+
+```{r}
+x <- model.matrix(Salary ~ ., Hitters)[, -1]
+y <- Hitters$Salary
+```
+
+```{r}
+library(glmnet)
+```
+
+Create a grid of $\lambda$s
+
+```{r}
+grid <- 10^seq(10, -2, length = 100)
+```
+
+Run the Ridge Regression on the matrix created above and provide the grid of $\lambda$s.
+
+```{r}
+ridge.mod <- glmnet(x, y, alpha=0, lambda = grid)
+```
+
+Check the results
+
+```{r}
+dim(coef(ridge.mod))
+```
+
+There are 20 coefficients (intercept + 19 variables)
+
+There are 100 runs with different $\lambda$s
+
+Checking the coefficients of the 50th $\lambda$
+
+```{r}
+ridge.mod$lambda[50]
+coef(ridge.mod)[, 50]
+```
+
+Calculate the $l_2$ norm of the coefficients
+
+```{r}
+sqrt (sum(coef(ridge.mod)[-1, 50]^2))
+```
+
+Checking the coefficients of the 60th $\lambda$
+
+```{r}
+ridge.mod$lambda[60]
+coef(ridge.mod)[, 60]
+```
+
+Calculate the $l_2$ norm of the coefficients
+
+```{r}
+sqrt(sum(coef(ridge.mod)[-1, 60]^2))
+```
+
+Now we split the dataset into train and test subsets
+
+```{r}
+set.seed(1)
+train <- sample(1:nrow(x), nrow(x) /2)
+test <- (-train)
+y.test <- y[test]
+```
+
+Fit a ridge regression model on the training set, and evaluate its MSE on the test set, using $\lambda$=4
+
+```{r}
+ridge.mod <- glmnet(x[train, ], y[train], alpha=0, lambda = grid, thresh = 1e-12)
+ridge.pred <- predict(ridge.mod, s=4, newx=x[test, ])
+mean((ridge.pred - y.test)^2)
+```
+
+Testing with a very high $lambda$=1e10
+
+```{r}
+ridge.pred <- predict(ridge.mod, s=1e10, newx=x[test, ])
+mean((ridge.pred - y.test)^2)
+```
+
+So tting a ridge regression model with $\lambda$ = 4 leads to a much lower test MSE than tting a model with just an intercept. We now check whether there is any benet to performing ridge regression with $\lambda$ = 4 instead of just performing least squares regression. Recall that least squares is simply ridge regression with $\lambda$ = 0
+
+```{r}
+ridge.pred <- predict(ridge.mod, s=0, newx=x[test, ], exact = T, x = x[train, ], y = y[train])
+mean((ridge.pred - y.test)^2)
+lm(y ~ x, subset=train)
+predict(ridge.mod, s=0, exact = T, type="coefficients", x = x[train, ], y = y[train])[1:20, ]
+```
+
+It would be better to use cross-validation to choose the tuning parameter $\lambda$
+
+```{r}
+set.seed(1)
+cv.out <- cv.glmnet(x[train, ], y[train], alpha=0)
+plot(cv.out)
+```
+
+Get best $\lambda$
+
+```{r}
+bestlam <- cv.out$lambda.min
+bestlam
+```
+
+Predict with $\lambda=326$
+
+```{r}
+ridge.pred <- predict(ridge.mod, s = bestlam, newx = x[test, ])
+mean((ridge.pred - y.test)^2)
+```
+
+Get coefficients
+
+```{r}
+out <- glmnet(x, y, alpha=0)
+predict(out, type="coefficients", s=bestlam)[1:20, ]
+```
+
+## The Lasso Code Example
+
+Let us test with the Lasso to see if we can get a better accuracy
+
+```{r}
+lasso.mod <- glmnet(x[train, ], y[train], alpha=1, lambda=grid)
+plot(lasso.mod)
+```
+
+We can see from the coefficient plot that depending on the choice of tuning parameter, some of the coefficients will be exactly equal to zero. We now perform cross-validation and compute the associated test error.
+
+```{r}
+set.seed(1)
+cv.out <- cv.glmnet(x[train, ], y[train], alpha=1)
+plot(cv.out)
+```
+
+Find the best $\lambda$
+
+```{r}
+bestlam <- cv.out$lambda.min
+bestlam
+```
+
+Use the best $\lambda$ to predict
+
+```{r}
+lasso.pred <- predict(lasso.mod, s=bestlam, newx = x[test, ])
+mean((lasso.pred - y.test)^2)
+```
+
+Get the coefficients
+
+```{r}
+out <- glmnet(x, y, alpha=1, lambda=grid)
+lasso.coef <- predict(out, type="coefficients", s=bestlam)[1:20, ]
+lasso.coef
+```
