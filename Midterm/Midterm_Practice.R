@@ -196,3 +196,47 @@ par(mfrow=c(2,2))
 plot(regfit.full.summary$adjr2, xlab="Number of Variables", ylab="Adjusted R^2", type="l")
 plot(regfit.full.summary$bic, xlab="Number of Variables", ylab="BIC", type="l")
 plot(regfit.full.summary$cp, xlab="Number of Variables", ylab="Cp", type="l")
+
+# Forward stepwise selection
+regfit.fwd <- regsubsets(body_mass_g ~ ., data = df, nvmax=15, method="forward")
+regfit.fwd.summary <- summary(regfit.fwd)
+
+# Adjusted R2
+regfit.fwd.summary$adjr2
+which.max(regfit.fwd.summary$adjr2)
+
+# BIC
+regfit.fwd.summary$bic
+which.min(regfit.fwd.summary$bic)
+
+# Cp
+regfit.fwd.summary$cp
+which.min(regfit.fwd.summary$cp)
+
+# Plot the forward stepwise selection
+par(mfrow=c(2,2))
+plot(regfit.fwd.summary$adjr2, xlab="Number of Variables", ylab="Adjusted R^2", type="l")
+plot(regfit.fwd.summary$bic, xlab="Number of Variables", ylab="BIC", type="l")
+plot(regfit.fwd.summary$cp, xlab="Number of Variables", ylab="Cp", type="l")
+
+# Backward stepwise selection
+regfit.bwd <- regsubsets(body_mass_g ~ ., data = df, nvmax=15, method="backward")
+regfit.bwd.summary <- summary(regfit.bwd)
+
+# Adjusted R2
+regfit.bwd.summary$adjr2
+which.max(regfit.bwd.summary$adjr2)
+
+# BIC
+regfit.bwd.summary$bic
+which.min(regfit.bwd.summary$bic)
+
+# Cp
+regfit.bwd.summary$cp
+which.min(regfit.bwd.summary$cp)
+
+# Plot the backward stepwise selection
+par(mfrow=c(2,2))
+plot(regfit.bwd.summary$adjr2, xlab="Number of Variables", ylab="Adjusted R^2", type="l")
+plot(regfit.bwd.summary$bic, xlab="Number of Variables", ylab="BIC", type="l")
+plot(regfit.bwd.summary$cp, xlab="Number of Variables", ylab="Cp", type="l")
