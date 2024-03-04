@@ -20,7 +20,7 @@ ggplot(df, aes(x = flipper_length_mm, y = body_mass_g)) +
   geom_point() +
   geom_smooth(method = "lm", se = FALSE)
 
-# Predict mass from flipper length
+# Predict body mass from flipper length
 lm <- lm(body_mass_g ~ flipper_length_mm, data = df)
 
 # Print the summary of the linear model
@@ -36,7 +36,8 @@ df <- df |>
   mutate(sex = ifelse(sex == "male", 0, 1))
 
 # Logistic Regression Model to predict sex from all other columns
-logit <- glm(sex ~ bill_length_mm + bill_depth_mm + flipper_length_mm + body_mass_g, data = df, family = "binomial")
+logit <- glm(sex ~ bill_length_mm + bill_depth_mm + flipper_length_mm + 
+               body_mass_g, data = df, family = "binomial")
 
 # Print the summary of the logistic model
 logit_summary <- summary(logit)
@@ -120,6 +121,7 @@ grid <- expand.grid(body_mass_g = seq(body_mass_min, body_mass_max, length.out =
                     flipper_length_mm = seq(flipper_length_min, flipper_length_max, length.out = 100))
 
 # Predict the species for each point in the grid
+temp <- predict(qda, newdata = grid)
 grid$species_pred <- predict(qda, newdata = grid)$class
 
 # Plot the grid with the predicted species
