@@ -62,3 +62,16 @@ ggplot() +
 # Calculate the accuracy of the model
 predictions <- predict(tree_model, iris, type="class")
 mean(predictions == iris$Species)
+
+# Using C50
+# Install the C50 package
+install.packages("C50")
+
+# Load the C50 library
+library(C50)
+
+# Create decision tree model
+tree_model <- C5.0(Species ~ ., data=iris)
+
+# Plot the decision tree
+plot(tree_model)
